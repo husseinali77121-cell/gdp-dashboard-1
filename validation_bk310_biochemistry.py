@@ -21,24 +21,34 @@ from openpyxl.drawing.image import Image as XLImage
 # ------------------------------
 # Acceptance criteria for biochemistry tests
 # Units and typical CLIA / desirable specs
+# (You can edit these limits as you wish)
+# Format: Test: (unit, precision_CV_max%, bias_max%, linearity_recovery_min%, linearity_recovery_max%, carryover_max%)
 # ------------------------------
 ACCEPTANCE = {
-    "Glucose":    ("mg/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
-    "Urea":       ("mg/dL", 4.0, 7.0, 90.0, 110.0, 1.0),
-    "Creatinine": ("mg/dL", 4.0, 7.0, 90.0, 110.0, 1.0),
-    "Uric Acid":  ("mg/dL", 5.0, 8.0, 90.0, 110.0, 1.0),
-    "Total Protein": ("g/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
-    "Albumin":    ("g/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
+    "Glucose":         ("mg/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
+    "Urea":            ("mg/dL", 4.0, 7.0, 90.0, 110.0, 1.0),
+    "Creatinine":      ("mg/dL", 4.0, 7.0, 90.0, 110.0, 1.0),
+    "Uric Acid":       ("mg/dL", 5.0, 8.0, 90.0, 110.0, 1.0),
+    "Total Protein":   ("g/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
+    "Albumin":         ("g/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
     "Total Bilirubin": ("mg/dL", 5.0, 10.0, 90.0, 110.0, 1.0),
-    "Direct Bilirubin": ("mg/dL", 5.0, 10.0, 90.0, 110.0, 1.0),
-    "ALT":        ("U/L", 5.0, 10.0, 90.0, 110.0, 1.0),
-    "AST":        ("U/L", 5.0, 10.0, 90.0, 110.0, 1.0),
-    "ALP":        ("U/L", 5.0, 10.0, 90.0, 110.0, 1.0),
-    "GGT":        ("U/L", 5.0, 10.0, 90.0, 110.0, 1.0),
-    "Cholesterol": ("mg/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
-    "Triglycerides": ("mg/dL", 5.0, 10.0, 90.0, 110.0, 1.0),
-    "HDL":        ("mg/dL", 4.0, 10.0, 90.0, 110.0, 1.0),
-    "LDL":        ("mg/dL", 4.0, 10.0, 90.0, 110.0, 1.0),
+    "Direct Bilirubin":("mg/dL", 5.0, 10.0, 90.0, 110.0, 1.0),
+    "ALT":             ("U/L", 5.0, 10.0, 90.0, 110.0, 1.0),
+    "AST":             ("U/L", 5.0, 10.0, 90.0, 110.0, 1.0),
+    "ALP":             ("U/L", 5.0, 10.0, 90.0, 110.0, 1.0),
+    "GGT":             ("U/L", 5.0, 10.0, 90.0, 110.0, 1.0),
+    "Cholesterol":     ("mg/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
+    "Triglycerides":   ("mg/dL", 5.0, 10.0, 90.0, 110.0, 1.0),
+    "HDL":             ("mg/dL", 4.0, 10.0, 90.0, 110.0, 1.0),
+    "LDL":             ("mg/dL", 4.0, 10.0, 90.0, 110.0, 1.0),
+    "Calcium":         ("mg/dL", 2.0, 4.0, 90.0, 110.0, 1.0),
+    "PO4":             ("mg/dL", 4.0, 8.0, 90.0, 110.0, 1.0),   # Phosphate
+    "Magnesium":       ("mg/dL", 4.0, 8.0, 90.0, 110.0, 1.0),   # Mg
+    "Zinc":            ("µg/dL", 5.0, 10.0, 90.0, 110.0, 1.0),
+    "Iron":            ("µg/dL", 5.0, 10.0, 90.0, 110.0, 1.0),
+    "Ferritin":        ("ng/mL", 8.0, 15.0, 90.0, 110.0, 1.0),
+    "Vit D":           ("ng/mL", 8.0, 20.0, 90.0, 110.0, 1.0),
+    "HbA1c":           ("%", 3.0, 5.0, 90.0, 110.0, 1.0),
 }
 
 OUTPUT_DIR = "output"
@@ -47,10 +57,10 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(TEMPLATE_DIR, exist_ok=True)
 
 # =============== Styling helpers ===============
-HEADER_FILL = PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid")  # light green
+HEADER_FILL = PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid")
 HEADER_FONT = Font(bold=True, size=11)
-USER_INPUT_FILL = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")  # light yellow
-PROTECTED_FILL = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")  # light gray for non-editable
+USER_INPUT_FILL = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+PROTECTED_FILL = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
 thin_border = Border(
     left=Side(style='thin'),
     right=Side(style='thin'),
@@ -60,7 +70,6 @@ thin_border = Border(
 center_align = Alignment(horizontal='center', vertical='center')
 
 def _style_header_row(ws, row, headers):
-    """Apply header style to a row."""
     for col_idx, header in enumerate(headers, 1):
         cell = ws.cell(row=row, column=col_idx, value=header)
         cell.font = HEADER_FONT
@@ -69,7 +78,6 @@ def _style_header_row(ws, row, headers):
         cell.border = thin_border
 
 def _apply_input_cell(ws, row, col, value=None):
-    """Style a cell as user-input (yellow) with optional value."""
     cell = ws.cell(row=row, column=col, value=value)
     cell.fill = USER_INPUT_FILL
     cell.border = thin_border
@@ -77,7 +85,6 @@ def _apply_input_cell(ws, row, col, value=None):
     return cell
 
 def _apply_fixed_cell(ws, row, col, value, protected=False):
-    """Style a cell as fixed (gray) and optionally protect."""
     cell = ws.cell(row=row, column=col, value=value)
     cell.fill = PROTECTED_FILL
     cell.border = thin_border
@@ -95,57 +102,48 @@ def _add_instruction_sheet(wb, module_name, instructions_text):
     ws['A1'].font = Font(bold=True, size=12)
     return wb
 
-# =============== Template Generators (Enhanced) ===============
+# =============== Template Generators ===============
 def generate_qc_template():
     wb = Workbook()
     ws = wb.active
     ws.title = "QC Data"
-    
-    # Header row
     headers = ["Test", "Level", "Lot", "Target_Mean", "Target_SD", "Measured_Value"]
     _style_header_row(ws, 1, headers)
-    
-    # Add a note row
+
     ws.merge_cells('A2:F2')
     note_cell = ws.cell(row=2, column=1, value="⬇️ Fill the YELLOW cells only. Test names and levels are pre-filled.")
     note_cell.font = Font(italic=True, color="555555")
-    
+
     tests = list(ACCEPTANCE.keys())
     levels = ["Normal", "Patho"]
     row = 3
     for test in tests:
         for level in levels:
-            # Fixed columns: Test, Level
             _apply_fixed_cell(ws, row, 1, test, protected=True)
             _apply_fixed_cell(ws, row, 2, level, protected=True)
-            # Input columns: Lot, Target_Mean, Target_SD, Measured_Value
             _apply_input_cell(ws, row, 3)  # Lot
             _apply_input_cell(ws, row, 4)  # Target_Mean
             _apply_input_cell(ws, row, 5)  # Target_SD
             _apply_input_cell(ws, row, 6)  # Measured_Value
             row += 1
 
-    # Column widths
-    ws.column_dimensions['A'].width = 20
+    ws.column_dimensions['A'].width = 22
     ws.column_dimensions['B'].width = 12
     ws.column_dimensions['C'].width = 12
     ws.column_dimensions['D'].width = 14
     ws.column_dimensions['E'].width = 12
     ws.column_dimensions['F'].width = 18
 
-    # Protect sheet so fixed cells cannot be edited
     ws.protection.sheet = True
-    ws.protection.set_password('')  # no password, just lock
-    # Unlock input cells (they are locked by default when sheet is protected)
+    ws.protection.set_password('')
     for r in range(3, row):
         for c in [3,4,5,6]:
             ws.cell(row=r, column=c).protection = Protection(locked=False)
 
     instructions = (
-        "1. Fill in Lot numbers for each QC material.\n"
-        "2. Enter Target Mean and Target SD as per QC lot insert.\n"
-        "3. Run each QC material on BK-310 and record result in Measured_Value.\n"
-        "4. Save the file and upload for analysis."
+        "1. Fill Lot numbers, Target Mean, Target SD, and Measured Value.\n"
+        "2. Yellow cells are unlocked; gray cells are locked.\n"
+        "3. Save the file and upload for analysis."
     )
     _add_instruction_sheet(wb, "Quality Control", instructions)
     path = os.path.join(TEMPLATE_DIR, "qc_template.xlsx")
@@ -156,32 +154,26 @@ def generate_precision_template(num_replicates=10):
     wb = Workbook()
     ws = wb.active
     ws.title = "Precision Data"
-    
     headers = ["Test"] + [f"Rep_{i+1}" for i in range(num_replicates)]
     _style_header_row(ws, 1, headers)
-    
-    # Note row
+
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
     note_cell = ws.cell(row=2, column=1, value="⬇️ Fill the YELLOW cells with replicate results.")
     note_cell.font = Font(italic=True, color="555555")
-    
+
     tests = list(ACCEPTANCE.keys())
     row = 3
     for test in tests:
-        # Fixed Test name
         _apply_fixed_cell(ws, row, 1, test, protected=True)
-        # Input replicate cells
         for rep_idx in range(num_replicates):
             _apply_input_cell(ws, row, rep_idx+2)
         row += 1
 
-    # Column widths
-    ws.column_dimensions['A'].width = 20
+    ws.column_dimensions['A'].width = 22
     for i in range(num_replicates):
         col_letter = openpyxl.utils.get_column_letter(i+2)
         ws.column_dimensions[col_letter].width = 10
 
-    # Protection
     ws.protection.sheet = True
     ws.protection.set_password('')
     for r in range(3, row):
@@ -190,9 +182,8 @@ def generate_precision_template(num_replicates=10):
 
     instructions = (
         f"1. For each test, run the same sample {num_replicates} times on BK-310.\n"
-        "2. Enter the results in the yellow replicate columns.\n"
-        "3. Leave no blank cells; use the same sample throughout.\n"
-        "4. Save and upload."
+        "2. Enter results in the yellow replicate columns.\n"
+        "3. Save and upload."
     )
     _add_instruction_sheet(wb, "Precision", instructions)
     path = os.path.join(TEMPLATE_DIR, "precision_template.xlsx")
@@ -203,23 +194,22 @@ def generate_accuracy_template():
     wb = Workbook()
     ws = wb.active
     ws.title = "Accuracy Data"
-    
     headers = ["Test", "Reference_Value", "Measured_Value"]
     _style_header_row(ws, 1, headers)
-    
+
     ws.merge_cells('A2:C2')
     note_cell = ws.cell(row=2, column=1, value="⬇️ Fill YELLOW cells with reference and measured values.")
     note_cell.font = Font(italic=True, color="555555")
-    
+
     tests = list(ACCEPTANCE.keys())
     row = 3
     for test in tests:
         _apply_fixed_cell(ws, row, 1, test, protected=True)
-        _apply_input_cell(ws, row, 2)  # Reference_Value
-        _apply_input_cell(ws, row, 3)  # Measured_Value
+        _apply_input_cell(ws, row, 2)  # Reference
+        _apply_input_cell(ws, row, 3)  # Measured
         row += 1
 
-    ws.column_dimensions['A'].width = 20
+    ws.column_dimensions['A'].width = 22
     ws.column_dimensions['B'].width = 18
     ws.column_dimensions['C'].width = 18
 
@@ -230,7 +220,7 @@ def generate_accuracy_template():
             ws.cell(row=r, column=c).protection = Protection(locked=False)
 
     instructions = (
-        "1. For each test, enter the known reference value (e.g., from calibrator or reference method).\n"
+        "1. Enter the known reference value (calibrator or reference method).\n"
         "2. Run the same sample on BK-310 and enter the measured value.\n"
         "3. Save and upload."
     )
@@ -243,27 +233,24 @@ def generate_linearity_template():
     wb = Workbook()
     ws = wb.active
     ws.title = "Linearity Data"
-    
     headers = ["Test", "Expected_Conc", "Measured_Conc"]
     _style_header_row(ws, 1, headers)
-    
+
     ws.merge_cells('A2:C2')
-    note_cell = ws.cell(row=2, column=1, value="⬇️ Fill Expected_Conc and Measured_Conc (yellow cells). Dilution examples: 0, 25%, 50%, 75%, 100%")
+    note_cell = ws.cell(row=2, column=1, value="⬇️ Fill Expected_Conc and Measured_Conc (yellow). Use at least 5 dilutions per test.")
     note_cell.font = Font(italic=True, color="555555")
-    
+
     tests = list(ACCEPTANCE.keys())
-    # Standard dilutions: 0, 1, 2, 4, 8 as placeholder (user changes Expected_Conc)
-    dilutions = [0, 1, 2, 4, 8]
     row = 3
     for test in tests:
-        for level in dilutions:
+        # Create 5 dilution rows for each test
+        for _ in range(5):
             _apply_fixed_cell(ws, row, 1, test, protected=True)
-            # Expected_Conc prefilled with level? No, we leave it user-input
             _apply_input_cell(ws, row, 2)  # Expected_Conc
             _apply_input_cell(ws, row, 3)  # Measured_Conc
             row += 1
 
-    ws.column_dimensions['A'].width = 20
+    ws.column_dimensions['A'].width = 22
     ws.column_dimensions['B'].width = 16
     ws.column_dimensions['C'].width = 16
 
@@ -275,8 +262,8 @@ def generate_linearity_template():
 
     instructions = (
         "1. Prepare a series of dilutions (e.g., 0%, 25%, 50%, 75%, 100% of high pool).\n"
-        "2. Fill Expected_Conc based on the dilution factor.\n"
-        "3. Measure each dilution on BK-310 and record Measured_Conc.\n"
+        "2. Write the calculated Expected_Conc for each dilution.\n"
+        "3. Run each dilution on BK-310 and record Measured_Conc.\n"
         "4. The report will compute linear regression and recovery."
     )
     _add_instruction_sheet(wb, "Linearity", instructions)
@@ -288,23 +275,22 @@ def generate_carryover_template():
     wb = Workbook()
     ws = wb.active
     ws.title = "Carryover Data"
-    
     headers = ["Test", "High1", "High2", "High3", "Low1", "Low2", "Low3"]
     _style_header_row(ws, 1, headers)
-    
+
     ws.merge_cells('A2:G2')
     note_cell = ws.cell(row=2, column=1, value="⬇️ Fill all yellow cells with the results from carryover experiment.")
     note_cell.font = Font(italic=True, color="555555")
-    
+
     tests = list(ACCEPTANCE.keys())
     row = 3
     for test in tests:
         _apply_fixed_cell(ws, row, 1, test, protected=True)
-        for col in range(2, 8):  # High1..Low3
+        for col in range(2, 8):  # High1 to Low3
             _apply_input_cell(ws, row, col)
         row += 1
 
-    ws.column_dimensions['A'].width = 20
+    ws.column_dimensions['A'].width = 22
     for col_letter in ['B','C','D','E','F','G']:
         ws.column_dimensions[col_letter].width = 10
 
@@ -317,8 +303,7 @@ def generate_carryover_template():
     instructions = (
         "1. Run a high-concentration sample three times consecutively (High1, High2, High3).\n"
         "2. Immediately run a low-concentration sample three times (Low1, Low2, Low3).\n"
-        "3. Enter results. Carryover% is calculated automatically.\n"
-        "4. Save and upload."
+        "3. Enter results. Carryover% is calculated automatically."
     )
     _add_instruction_sheet(wb, "Carryover", instructions)
     path = os.path.join(TEMPLATE_DIR, "carryover_template.xlsx")
@@ -326,7 +311,7 @@ def generate_carryover_template():
     print(f"Carryover template saved to {path}")
 
 # ------------------------------
-# Helper functions
+# Statistical helpers
 # ------------------------------
 def calc_stats(series):
     vals = series.dropna().astype(float)
@@ -346,7 +331,7 @@ def plot_to_excel(ws, img_path, anchor):
     ws.add_image(img)
 
 # ------------------------------
-# 1. QUALITY CONTROL PROCESSING
+# Processing functions (unchanged logic, just read sheet name)
 # ------------------------------
 def process_qc(filename):
     df = pd.read_excel(filename, sheet_name="QC Data")
@@ -398,9 +383,6 @@ def process_qc(filename):
     print(f"QC report saved to {out_path}")
     return summary
 
-# ------------------------------
-# 2. PRECISION PROCESSING
-# ------------------------------
 def process_precision(filename):
     df = pd.read_excel(filename, sheet_name="Precision Data")
     test_col = "Test"
@@ -464,9 +446,6 @@ def process_precision(filename):
     print(f"Precision report saved to {out_path}")
     return summary
 
-# ------------------------------
-# 3. ACCURACY PROCESSING
-# ------------------------------
 def process_accuracy(filename):
     df = pd.read_excel(filename, sheet_name="Accuracy Data")
     df["Reference_Value"] = pd.to_numeric(df["Reference_Value"], errors='coerce')
@@ -522,9 +501,6 @@ def process_accuracy(filename):
     print(f"Accuracy report saved to {out_path}")
     return summary
 
-# ------------------------------
-# 4. LINEARITY PROCESSING
-# ------------------------------
 def process_linearity(filename):
     df = pd.read_excel(filename, sheet_name="Linearity Data")
     df["Expected_Conc"] = pd.to_numeric(df["Expected_Conc"], errors='coerce')
@@ -590,9 +566,6 @@ def process_linearity(filename):
     print(f"Linearity report saved to {out_path}")
     return summary
 
-# ------------------------------
-# 5. CARRYOVER PROCESSING
-# ------------------------------
 def process_carryover(filename):
     df = pd.read_excel(filename, sheet_name="Carryover Data")
     high_cols = ["High1", "High2", "High3"]
@@ -637,18 +610,14 @@ def process_carryover(filename):
     print(f"Carryover report saved to {out_path}")
     return summary
 
-# ------------------------------
-# Command-line interface (kept for compatibility)
-# ------------------------------
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="BK-310 Biochemistry Validation")
     parser.add_argument("--module", type=str, required=True,
-                        choices=["qc", "precision", "accuracy", "linearity", "carryover"],
-                        help="Validation module to run")
-    parser.add_argument("--generate", action="store_true", help="Generate empty template")
-    parser.add_argument("--process", type=str, help="Process filled template file (xlsx path)")
-    parser.add_argument("--replicates", type=int, default=10, help="Number of replicates for precision template")
+                        choices=["qc", "precision", "accuracy", "linearity", "carryover"])
+    parser.add_argument("--generate", action="store_true")
+    parser.add_argument("--process", type=str)
+    parser.add_argument("--replicates", type=int, default=10)
     args = parser.parse_args()
     if args.module == "qc":
         if args.generate: generate_qc_template()
@@ -665,5 +634,3 @@ if __name__ == "__main__":
     elif args.module == "carryover":
         if args.generate: generate_carryover_template()
         elif args.process: process_carryover(args.process)
-    else:
-        print("Invalid module")

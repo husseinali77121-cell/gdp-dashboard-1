@@ -7,22 +7,22 @@ Modules: QC, Precision, Accuracy, Linearity, Carryover
 import pandas as pd
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')  # non-interactive backend
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 import sys
 from datetime import datetime
+import openpyxl
 from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.drawing.image import Image as XLImage
-import argparse
 
 # ------------------------------
-# Configuration: acceptance criteria for biochemistry tests
+# Acceptance criteria for biochemistry tests
 # Units and typical CLIA / desirable specs
 # ------------------------------
 ACCEPTANCE = {
-    # Test: (unit, precision_CV_max%, bias_max%, linearity_recovery_min%, linearity_recovery_max%, carryover_max%)
     "Glucose":    ("mg/dL", 3.0, 5.0, 90.0, 110.0, 1.0),
     "Urea":       ("mg/dL", 4.0, 7.0, 90.0, 110.0, 1.0),
     "Creatinine": ("mg/dL", 4.0, 7.0, 90.0, 110.0, 1.0),
@@ -40,23 +40,161 @@ ACCEPTANCE = {
     "HDL":        ("mg/dL", 4.0, 10.0, 90.0, 110.0, 1.0),
     "LDL":        ("mg/dL", 4.0, 10.0, 90.0, 110.0, 1.0),
 }
-# You can add more analytes or adjust limits as needed.
 
 OUTPUT_DIR = "output"
 TEMPLATE_DIR = "templates"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(TEMPLATE_DIR, exist_ok=True)
 
+# =============== NEW TEMPLATE GENERATION FUNCTIONS (Enhanced) ===============
+def _style_header(ws, headers, row=1):
+    """Write bold, centered headers in a row with light green background."""
+    header_font = Font(bold=True, size=11)
+    header_fill = PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid")
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=row, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+def _add_instruction_sheet(wb, module_name, instructions_text):
+    ws = wb.create_sheet("Instructions")
+    ws.append([f"Template: {module_name}"])
+    ws.append(["Instructions:"])
+    for line in instructions_text.split('\n'):
+        ws.append([line])
+    ws['A1'].font = Font(bold=True, size=12)
+    return wb
+
+def generate_qc_template():
+    """Generate QC template with all tests from ACCEPTANCE, levels Normal & Patho."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "QC Data"
+    headers = ["Test", "Level", "Lot", "Target_Mean", "Target_SD", "Measured_Value"]
+    _style_header(ws, headers)
+    tests = list(ACCEPTANCE.keys())
+    levels = ["Normal", "Patho"]
+    row = 2
+    for test in tests:
+        for level in levels:
+            ws.cell(row=row, column=1, value=test)
+            ws.cell(row=row, column=2, value=level)
+            row += 1
+    ws.freeze_panes = 'A2'
+    instructions = (
+        "1. Fill in Lot numbers for each QC material.\n"
+        "2. Enter Target Mean and Target SD as per QC lot insert.\n"
+        "3. Run each QC material on BK-310 and record result in Measured_Value.\n"
+        "4. Save the file and upload for analysis."
+    )
+    _add_instruction_sheet(wb, "Quality Control", instructions)
+    path = os.path.join(TEMPLATE_DIR, "qc_template.xlsx")
+    wb.save(path)
+    print(f"QC template saved to {path}")
+
+def generate_precision_template(num_replicates=10):
+    """Precision template: all tests, predefined replicate columns."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Precision Data"
+    headers = ["Test"] + [f"Rep_{i+1}" for i in range(num_replicates)]
+    _style_header(ws, headers)
+    tests = list(ACCEPTANCE.keys())
+    for i, test in enumerate(tests, start=2):
+        ws.cell(row=i, column=1, value=test)
+    ws.freeze_panes = 'B2'
+    instructions = (
+        f"1. For each test, run the same sample {num_replicates} times on BK-310.\n"
+        "2. Enter the results in the corresponding replicate columns.\n"
+        "3. Leave no blank cells; use the same sample throughout.\n"
+        "4. Save and upload."
+    )
+    _add_instruction_sheet(wb, "Precision", instructions)
+    path = os.path.join(TEMPLATE_DIR, "precision_template.xlsx")
+    wb.save(path)
+    print(f"Precision template saved to {path}")
+
+def generate_accuracy_template():
+    """Accuracy template: all tests, reference & measured columns."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Accuracy Data"
+    headers = ["Test", "Reference_Value", "Measured_Value"]
+    _style_header(ws, headers)
+    tests = list(ACCEPTANCE.keys())
+    for i, test in enumerate(tests, start=2):
+        ws.cell(row=i, column=1, value=test)
+    ws.freeze_panes = 'A2'
+    instructions = (
+        "1. For each test, enter the known reference value (e.g., from calibrator or reference method).\n"
+        "2. Run the same sample on BK-310 and enter the measured value.\n"
+        "3. Save and upload."
+    )
+    _add_instruction_sheet(wb, "Accuracy", instructions)
+    path = os.path.join(TEMPLATE_DIR, "accuracy_template.xlsx")
+    wb.save(path)
+    print(f"Accuracy template saved to {path}")
+
+def generate_linearity_template():
+    """Linearity template: for each test, 5 dilution levels (typical)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Linearity Data"
+    headers = ["Test", "Expected_Conc", "Measured_Conc"]
+    _style_header(ws, headers)
+    tests = list(ACCEPTANCE.keys())
+    # predefined dilution names (user can replace expected conc.)
+    dilutions = [0, 1, 2, 5, 10]
+    row = 2
+    for test in tests:
+        for level in dilutions:
+            ws.cell(row=row, column=1, value=test)
+            # Expected_Conc left blank for user to fill
+            row += 1
+    ws.freeze_panes = 'A2'
+    instructions = (
+        "1. Prepare a series of dilutions (e.g., 0%, 25%, 50%, 75%, 100% of the high pool).\n"
+        "2. Fill Expected_Conc based on the dilution factor.\n"
+        "3. Measure each dilution on BK-310 and record Measured_Conc.\n"
+        "4. The report will compute linear regression and recovery."
+    )
+    _add_instruction_sheet(wb, "Linearity", instructions)
+    path = os.path.join(TEMPLATE_DIR, "linearity_template.xlsx")
+    wb.save(path)
+    print(f"Linearity template saved to {path}")
+
+def generate_carryover_template():
+    """Carryover template: all tests, High1-3, Low1-3 columns."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Carryover Data"
+    headers = ["Test", "High1", "High2", "High3", "Low1", "Low2", "Low3"]
+    _style_header(ws, headers)
+    tests = list(ACCEPTANCE.keys())
+    for i, test in enumerate(tests, start=2):
+        ws.cell(row=i, column=1, value=test)
+    ws.freeze_panes = 'B2'
+    instructions = (
+        "1. Run a high-concentration sample three times consecutively (High1, High2, High3).\n"
+        "2. Immediately run a low-concentration sample three times (Low1, Low2, Low3).\n"
+        "3. Enter results. Carryover% is calculated automatically.\n"
+        "4. Save and upload."
+    )
+    _add_instruction_sheet(wb, "Carryover", instructions)
+    path = os.path.join(TEMPLATE_DIR, "carryover_template.xlsx")
+    wb.save(path)
+    print(f"Carryover template saved to {path}")
+
 # ------------------------------
 # Helper functions
 # ------------------------------
 def calc_stats(series):
-    """Return mean, SD, CV% for a numeric series."""
     vals = series.dropna().astype(float)
     if len(vals) < 2:
         return np.nan, np.nan, np.nan
     mean = vals.mean()
-    sd = vals.std(ddof=1)  # sample SD
+    sd = vals.std(ddof=1)
     cv = (sd / mean * 100) if mean != 0 else np.nan
     return mean, sd, cv
 
@@ -64,7 +202,6 @@ def status(pass_condition):
     return "PASS" if pass_condition else "FAIL"
 
 def plot_to_excel(ws, img_path, anchor):
-    """Insert a PNG image into an openpyxl worksheet."""
     img = XLImage(img_path)
     img.anchor = anchor
     ws.add_image(img)
@@ -72,22 +209,8 @@ def plot_to_excel(ws, img_path, anchor):
 # ------------------------------
 # 1. QUALITY CONTROL MODULE
 # ------------------------------
-def generate_qc_template():
-    """Create QC template: columns for Test, Level, Lot, Target Mean, Target SD, Measured Value."""
-    template = pd.DataFrame(columns=["Test", "Level", "Lot", "Target_Mean", "Target_SD", "Measured_Value"])
-    # Add example rows
-    examples = [
-        {"Test": "Glucose", "Level": "Normal", "Lot": "QC123", "Target_Mean": 100, "Target_SD": 3, "Measured_Value": ""},
-        {"Test": "Glucose", "Level": "Patho", "Lot": "QC456", "Target_Mean": 250, "Target_SD": 7.5, "Measured_Value": ""},
-    ]
-    template = pd.concat([template, pd.DataFrame(examples)], ignore_index=True)
-    path = os.path.join(TEMPLATE_DIR, "qc_template.xlsx")
-    template.to_excel(path, index=False)
-    print(f"QC template saved to {path}\nPlease fill in the 'Measured_Value' column and re-load.")
-
 def process_qc(filename):
-    """Read filled QC template, compute z-scores and Levey-Jennings plot per test/level."""
-    df = pd.read_excel(filename)
+    df = pd.read_excel(filename, sheet_name="QC Data")  # ensure we read the data sheet
     required_cols = {"Test", "Level", "Target_Mean", "Target_SD", "Measured_Value"}
     if not required_cols.issubset(df.columns):
         raise ValueError(f"Missing columns. Required: {required_cols}")
@@ -96,13 +219,11 @@ def process_qc(filename):
     df["Measured_Value"] = pd.to_numeric(df["Measured_Value"], errors='coerce')
     df = df.dropna(subset=["Measured_Value"])
     df["Z_Score"] = (df["Measured_Value"] - df["Target_Mean"]) / df["Target_SD"]
-    df["Acceptable"] = df["Z_Score"].abs() <= 2  # within 2 SD
+    df["Acceptable"] = df["Z_Score"].abs() <= 2
     df["Status"] = df["Acceptable"].apply(lambda x: status(x))
 
-    # Summary per test & level
     summary = df[["Test", "Level", "Lot", "Target_Mean", "Target_SD", "Measured_Value", "Z_Score", "Status"]]
 
-    # Generate Levey-Jennings plot per test-level combination
     plot_files = []
     for (test, level), group in df.groupby(["Test", "Level"]):
         plt.figure()
@@ -110,8 +231,6 @@ def process_qc(filename):
         means = group["Target_Mean"].values
         sds = group["Target_SD"].values
         vals = group["Measured_Value"].values
-        z = group["Z_Score"].values
-        # Plot +2SD, -2SD, mean lines
         for i, (m, sd) in enumerate(zip(means, sds)):
             plt.axhline(y=m+2*sd, color='red', linestyle='--', linewidth=0.8)
             plt.axhline(y=m-2*sd, color='red', linestyle='--', linewidth=0.8)
@@ -126,17 +245,15 @@ def process_qc(filename):
         plt.close()
         plot_files.append(fname)
 
-    # Write Excel report
     wb = Workbook()
     ws = wb.active
     ws.title = "QC Results"
     for r in dataframe_to_rows(summary, index=False, header=True):
         ws.append(r)
-    # Insert plots into same workbook
     img_row = len(summary) + 3
     for i, fname in enumerate(plot_files):
         plot_to_excel(ws, fname, f"A{img_row}")
-        img_row += 20  # adjust spacing
+        img_row += 20
     out_path = os.path.join(OUTPUT_DIR, "QC_Report.xlsx")
     wb.save(out_path)
     print(f"QC report saved to {out_path}")
@@ -145,25 +262,10 @@ def process_qc(filename):
 # ------------------------------
 # 2. PRECISION (Within-Run) MODULE
 # ------------------------------
-def generate_precision_template(num_replicates=10):
-    """Template: rows per test, replicate columns."""
-    cols = ["Test"] + [f"Rep_{i+1}" for i in range(num_replicates)]
-    template = pd.DataFrame(columns=cols)
-    # Add one example row
-    example = {"Test": "Glucose"}
-    for i in range(num_replicates):
-        example[f"Rep_{i+1}"] = ""
-    template = pd.concat([template, pd.DataFrame([example])], ignore_index=True)
-    path = os.path.join(TEMPLATE_DIR, "precision_template.xlsx")
-    template.to_excel(path, index=False)
-    print(f"Precision template saved to {path} (with {num_replicates} replicates). Fill and reload.")
-
 def process_precision(filename):
-    """Calculate mean, SD, CV% per test and compare to limit."""
-    df = pd.read_excel(filename)
+    df = pd.read_excel(filename, sheet_name="Precision Data")
     test_col = "Test"
     rep_cols = [c for c in df.columns if c.startswith("Rep_")]
-    # Melt to long format for easier stats
     melted = df.melt(id_vars=[test_col], value_vars=rep_cols, var_name="Replicate", value_name="Result")
     melted["Result"] = pd.to_numeric(melted["Result"], errors='coerce')
     grouped = melted.groupby("Test")["Result"]
@@ -177,7 +279,7 @@ def process_precision(filename):
         test = row["Test"]
         cv = row["CV%"]
         if test in ACCEPTANCE:
-            limit = ACCEPTANCE[test][1]  # precision CV% limit
+            limit = ACCEPTANCE[test][1]
             unit = ACCEPTANCE[test][0]
             pass_fail = status(cv <= limit)
         else:
@@ -195,7 +297,6 @@ def process_precision(filename):
         })
     summary = pd.DataFrame(results)
 
-    # Plot CV% bar chart vs limits
     plt.figure()
     tests = summary["Test"]
     cv_vals = summary["CV%"]
@@ -213,7 +314,6 @@ def process_precision(filename):
     plt.savefig(plot_path)
     plt.close()
 
-    # Excel report
     wb = Workbook()
     ws = wb.active
     ws.title = "Precision Results"
@@ -228,18 +328,8 @@ def process_precision(filename):
 # ------------------------------
 # 3. ACCURACY (Bias) MODULE
 # ------------------------------
-def generate_accuracy_template():
-    template = pd.DataFrame(columns=["Test", "Reference_Value", "Measured_Value"])
-    examples = [
-        {"Test": "Glucose", "Reference_Value": "", "Measured_Value": ""},
-    ]
-    template = pd.concat([template, pd.DataFrame(examples)], ignore_index=True)
-    path = os.path.join(TEMPLATE_DIR, "accuracy_template.xlsx")
-    template.to_excel(path, index=False)
-    print(f"Accuracy template saved to {path}")
-
 def process_accuracy(filename):
-    df = pd.read_excel(filename)
+    df = pd.read_excel(filename, sheet_name="Accuracy Data")
     df["Reference_Value"] = pd.to_numeric(df["Reference_Value"], errors='coerce')
     df["Measured_Value"] = pd.to_numeric(df["Measured_Value"], errors='coerce')
     df.dropna(subset=["Reference_Value", "Measured_Value"], inplace=True)
@@ -250,7 +340,7 @@ def process_accuracy(filename):
         test = row["Test"]
         bias = row["Bias%"]
         if test in ACCEPTANCE:
-            limit = ACCEPTANCE[test][2]  # bias% limit
+            limit = ACCEPTANCE[test][2]
             unit = ACCEPTANCE[test][0]
             pass_fail = status(abs(bias) <= limit)
         else:
@@ -268,7 +358,6 @@ def process_accuracy(filename):
         })
     summary = pd.DataFrame(results)
 
-    # Scatter plot measured vs reference
     plt.figure()
     for test in summary["Test"].unique():
         subset = summary[summary["Test"] == test]
@@ -297,24 +386,8 @@ def process_accuracy(filename):
 # ------------------------------
 # 4. LINEARITY MODULE
 # ------------------------------
-def generate_linearity_template():
-    """Template: Test, Dilution_Factor (or Expected_Conc), Measured_Conc"""
-    template = pd.DataFrame(columns=["Test", "Expected_Conc", "Measured_Conc"])
-    # Example for Glucose
-    example = [
-        {"Test": "Glucose", "Expected_Conc": 0, "Measured_Conc": ""},
-        {"Test": "Glucose", "Expected_Conc": 50, "Measured_Conc": ""},
-        {"Test": "Glucose", "Expected_Conc": 100, "Measured_Conc": ""},
-        {"Test": "Glucose", "Expected_Conc": 200, "Measured_Conc": ""},
-        {"Test": "Glucose", "Expected_Conc": 400, "Measured_Conc": ""},
-    ]
-    template = pd.concat([template, pd.DataFrame(example)], ignore_index=True)
-    path = os.path.join(TEMPLATE_DIR, "linearity_template.xlsx")
-    template.to_excel(path, index=False)
-    print(f"Linearity template saved to {path}")
-
 def process_linearity(filename):
-    df = pd.read_excel(filename)
+    df = pd.read_excel(filename, sheet_name="Linearity Data")
     df["Expected_Conc"] = pd.to_numeric(df["Expected_Conc"], errors='coerce')
     df["Measured_Conc"] = pd.to_numeric(df["Measured_Conc"], errors='coerce')
     df.dropna(inplace=True)
@@ -330,11 +403,9 @@ def process_linearity(filename):
         coeffs = np.polyfit(x, y, 1)
         slope, intercept = coeffs
         y_pred = slope * x + intercept
-        recovery = (y / x) * 100 if x[0] != 0 else np.nan  # avoid zero division
-        # For 0 expected, recovery not defined; we can skip or set to NaN
+        recovery = (y / x) * 100
         mask = x > 0
         avg_recovery = np.mean(recovery[mask])
-        # Check recovery limits
         if test in ACCEPTANCE:
             low_rec, high_rec = ACCEPTANCE[test][3], ACCEPTANCE[test][4]
             pass_fail = status(low_rec <= avg_recovery <= high_rec)
@@ -353,7 +424,6 @@ def process_linearity(filename):
             "Status": pass_fail
         })
 
-        # Plot
         plt.figure()
         plt.scatter(x, y, label="Measured")
         plt.plot(x, y_pred, 'r-', label=f"Fit: y={slope:.3f}x+{intercept:.3f}")
@@ -367,7 +437,6 @@ def process_linearity(filename):
         plot_files.append(fname)
 
     summary = pd.DataFrame(results)
-
     wb = Workbook()
     ws = wb.active
     ws.title = "Linearity Results"
@@ -385,18 +454,8 @@ def process_linearity(filename):
 # ------------------------------
 # 5. CARRYOVER MODULE
 # ------------------------------
-def generate_carryover_template():
-    """Template: Test, High1, High2, High3, Low1, Low2, Low3"""
-    template = pd.DataFrame(columns=["Test", "High1", "High2", "High3", "Low1", "Low2", "Low3"])
-    example = {"Test": "Glucose", "High1": "", "High2": "", "High3": "", "Low1": "", "Low2": "", "Low3": ""}
-    template = pd.concat([template, pd.DataFrame([example])], ignore_index=True)
-    path = os.path.join(TEMPLATE_DIR, "carryover_template.xlsx")
-    template.to_excel(path, index=False)
-    print(f"Carryover template saved to {path}")
-
 def process_carryover(filename):
-    df = pd.read_excel(filename)
-    # Melt high and low into long format
+    df = pd.read_excel(filename, sheet_name="Carryover Data")
     high_cols = ["High1", "High2", "High3"]
     low_cols = ["Low1", "Low2", "Low3"]
     results = []
@@ -408,10 +467,6 @@ def process_carryover(filename):
             continue
         high_mean = highs.mean()
         low_mean = lows.mean()
-        # Carryover% = (Low1 - Low3_avg) / (High2_avg - Low3_avg) * 100 (standard formula)
-        # Using typical carryover formula: ((L1 - L3) / (H2 - L3)) * 100
-        # We'll use mean of low replicates as L_avg, but better to follow CLSI: use the first low after high (Low1) and average of subsequent lows.
-        # Simplification: Carryover = ((Low1 - mean of Low2,Low3) / (mean of High1-3 - mean of Low2,Low3)) * 100
         if len(lows) >= 3:
             low_first = lows.iloc[0]
             low_rest_mean = lows.iloc[1:].mean()
@@ -435,22 +490,21 @@ def process_carryover(filename):
             "Status": pass_fail
         })
     summary = pd.DataFrame(results)
-
     wb = Workbook()
     ws = wb.active
     ws.title = "Carryover Results"
     for r in dataframe_to_rows(summary, index=False, header=True):
         ws.append(r)
-    # No plot, simple table
     out_path = os.path.join(OUTPUT_DIR, "Carryover_Report.xlsx")
     wb.save(out_path)
     print(f"Carryover report saved to {out_path}")
     return summary
 
 # ------------------------------
-# Command-line interface
+# Command-line interface (optional, kept for backwards compatibility)
 # ------------------------------
-def main():
+if __name__ == "__main__":
+    import argparse
     parser = argparse.ArgumentParser(description="BK-310 Biochemistry Validation")
     parser.add_argument("--module", type=str, required=True,
                         choices=["qc", "precision", "accuracy", "linearity", "carryover"],
@@ -458,38 +512,21 @@ def main():
     parser.add_argument("--generate", action="store_true", help="Generate empty template")
     parser.add_argument("--process", type=str, help="Process filled template file (xlsx path)")
     parser.add_argument("--replicates", type=int, default=10, help="Number of replicates for precision template")
-
     args = parser.parse_args()
-
-    module = args.module
-    if args.generate:
-        if module == "qc":
-            generate_qc_template()
-        elif module == "precision":
-            generate_precision_template(args.replicates)
-        elif module == "accuracy":
-            generate_accuracy_template()
-        elif module == "linearity":
-            generate_linearity_template()
-        elif module == "carryover":
-            generate_carryover_template()
-    elif args.process:
-        file_path = args.process
-        if not os.path.exists(file_path):
-            print(f"File {file_path} not found.")
-            sys.exit(1)
-        if module == "qc":
-            process_qc(file_path)
-        elif module == "precision":
-            process_precision(file_path)
-        elif module == "accuracy":
-            process_accuracy(file_path)
-        elif module == "linearity":
-            process_linearity(file_path)
-        elif module == "carryover":
-            process_carryover(file_path)
+    if args.module == "qc":
+        if args.generate: generate_qc_template()
+        elif args.process: process_qc(args.process)
+    elif args.module == "precision":
+        if args.generate: generate_precision_template(args.replicates)
+        elif args.process: process_precision(args.process)
+    elif args.module == "accuracy":
+        if args.generate: generate_accuracy_template()
+        elif args.process: process_accuracy(args.process)
+    elif args.module == "linearity":
+        if args.generate: generate_linearity_template()
+        elif args.process: process_linearity(args.process)
+    elif args.module == "carryover":
+        if args.generate: generate_carryover_template()
+        elif args.process: process_carryover(args.process)
     else:
-        print("Please specify either --generate or --process <file>. Use --help for details.")
-
-if __name__ == "__main__":
-    main()
+        print("Invalid module")
